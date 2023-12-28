@@ -41,7 +41,7 @@ func (wx *Wx) urlWrap() (url string) {
 }
 
 func (wx *Wx) toEntityList() (entityList *EntityList) {
-	entityList = &EntityList{Index: 0, Size: 10}
+	entityList = &EntityList{Index: 0, Size: 0}
 	entityList.List = []Entity{}
 
 	if wx.resp.doc != nil {
@@ -62,6 +62,7 @@ func (wx *Wx) toEntityList() (entityList *EntityList) {
 			entity.Host = strings.Split(host, "/")[0]
 			entityList.List = append(entityList.List, entity)
 		})
+		entityList.Size = len(entityList.List)
 	}
 	return entityList
 }

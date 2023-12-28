@@ -20,8 +20,8 @@ var BaiduP = EndPoint{
 	Search: "https://www.baidu.com" + "/s?wd=%s" + "&usm=3&rsv_idx=2&rsv_page=1",
 	From:   "百度",
 
-	UseProxy: false,
-	Proxy:    url.URL{},
+	UseProxy:  false,
+	Proxy:     url.URL{},
 	Transport: GetTransport(),
 }
 
@@ -44,8 +44,7 @@ func (baidu *Baidu) urlWrap() (url string) {
 }
 
 func (baidu *Baidu) toEntityList() (entityList *EntityList) {
-	entityList = &EntityList{Index: 0, Size: 10}
-	entityList.List = []Entity{}
+	entityList = &EntityList{Index: 0, Size: 0, List: []Entity{}}
 
 	if baidu.resp.doc != nil {
 		// Find the review items
@@ -68,6 +67,7 @@ func (baidu *Baidu) toEntityList() (entityList *EntityList) {
 			entity.Host = strings.Split(host, "/")[0]
 			entityList.List = append(entityList.List, entity)
 		})
+		entityList.Size = len(entityList.List)
 	}
 	return entityList
 }

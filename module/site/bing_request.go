@@ -61,6 +61,7 @@ func (bing *Bing) toEntityList() (entityList *EntityList) {
 			entity.Host = strings.Split(host, "/")[0]
 			entityList.List = append(entityList.List, entity)
 		})
+		entityList.Size = len(entityList.List)
 	}
 	return entityList
 }
