@@ -167,9 +167,9 @@ func nameToReq(name string, q string) SearchEngine {
 	switch name {
 	case "百度":
 		return &Baidu{Req: Req{Q: q}}
-	case "bing":
+	case "Bing":
 		return &Bing{Req: Req{Q: q}}
-	case "google":
+	case "Google":
 		return &Google{Req: Req{Q: q}}
 	case "微信公众号":
 		return &Wx{Req: Req{Q: q}}
@@ -183,6 +183,9 @@ func GetAllEnabled(q string) []SearchEngine {
 	for _, e := range endpoints {
 		if GetEnable(e.Domain) {
 			req := nameToReq(e.From, q)
+			if req == nil {
+				log.Fatalf("unknown search engine: %v\n", e.From)
+			}
 			enabled = append(enabled, req)
 		}
 	}

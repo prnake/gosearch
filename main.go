@@ -76,12 +76,7 @@ func search(w http.ResponseWriter, request *http.Request) {
 		List:  []site.Entity{},
 	}}
 
-	array := [...]site.SearchEngine{
-		&site.Wx{Req: site.Req{Q: q}},
-		&site.Google{Req: site.Req{Q: q}},
-		&site.Bing{Req: site.Req{Q: q}},
-		&site.Baidu{Req: site.Req{Q: q}},
-	}
+	array := site.GetAllEnabled(q)
 
 	cLen := 0
 	for _, engine := range array {
