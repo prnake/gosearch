@@ -1,5 +1,5 @@
 server:
-  debug: false
+  debug: true
   port: 80
   # proxy: http://localhost:10880
   timeout: 1s
@@ -23,6 +23,7 @@ search:
     positionWeight: 1
     score: 10
     enable: true
+    proxy: http://localhost:10880
   - name: 微信公众号
     domain: weixin.sogou.com
     weight: 1

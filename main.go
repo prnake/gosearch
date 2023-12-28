@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -56,18 +57,38 @@ func health(w http.ResponseWriter, request *http.Request) {
 	_, _ = io.WriteString(w, "ok")
 }
 
-func subSearch(se site.SearchEngine, c chan *site.EntityList) {
-	if se.Enable() {
-		c <- se.Search()
-	}
-}
-
 func search(w http.ResponseWriter, request *http.Request) {
 	log.Println(request.URL)
 	_ = request.ParseForm()
+
 	q := request.Form.Get("q")
 	q = url.QueryEscape(q)
-	log.Printf("查询内容: %s\n", q)
+
+	var engine []string
+
+	if engineStr := request.Form.Get("engine"); len(engineStr) == 0 {
+		engine = []string{
+			"Baidu",
+			"Bing",
+			"Google",
+			"Wx",
+		}
+	} else {
+		engine = strings.Split(engineStr, ",")
+	}
+
+	var timeout time.Duration
+	if timeoutStr := request.Form.Get("timeout"); timeoutStr != "" {
+		timeout, _ = time.ParseDuration(timeoutStr)
+	} else {
+		timeout = site.MaxTimeout
+	}
+
+	if site.GetDebug() {
+		log.Printf("查询内容: %s\n", q)
+		log.Printf("引擎: %v\n", engine)
+		log.Printf("超时: %v\n", timeout)
+	}
 
 	start := time.Now().UnixNano()
 	jsonResult := &site.JsonResult{Code: 0, Data: &site.EntityList{
@@ -76,35 +97,56 @@ func search(w http.ResponseWriter, request *http.Request) {
 		List:  []site.Entity{},
 	}}
 
-	array := site.GetAllEnabled(q)
-
-	cLen := 0
-	for _, engine := range array {
-		if engine.Enable() {
-			cLen++
-		}
+	array, unsupported := site.GetByNames(engine, q)
+	if array == nil {
+		w.WriteHeader(400)
+		jsonResult.Code = -1
+		jsonResult.Msg = fmt.Sprintf("不支持的搜索引擎: %s", unsupported)
+		v, _ := json.Marshal(jsonResult)
+		_, _ = w.Write(v)
+		return
 	}
+
+	cLen := len(array)
 	c := make(chan *site.EntityList, cLen)
 	for _, engine := range array {
-		go subSearch(engine, c)
+		go func(engine site.SearchEngine) {
+			c <- engine.Search()
+		}(engine)
 	}
 
-	for result := range c {
+	results := []*site.EntityList{}
+	timeoutAfter := time.After(timeout)
+
+outer:
+	for {
+		select {
+		case result := <-c:
+			results = append(results, result)
+
+			if len(result.List) != 0 && site.GetDebug() {
+				log.Println("收到: " + result.List[0].From)
+			}
+
+			cLen--
+			if cLen == 0 {
+				close(c)
+				break outer
+			}
+		case <-timeoutAfter:
+			break outer
+		}
+	}
+
+	for _, result := range results {
 		jsonResult.Data.Size += result.Size
 		for i, entity := range result.List {
-			if i == 0 {
-				log.Println("for enter: " + entity.From)
-			}
 			//初始化自然排序
 			entity.PositionScore = (len(result.List) - i) * site.GetPositionWeight(entity.From)
 			entity.SearchScore = site.GetSearchScore(entity.From)
 			entity.DomainScore = site.GetDomainScore(entity.Host)
 			entity.Score = entity.PositionScore + entity.SearchScore + entity.DomainScore
 			jsonResult.Data.List = append(jsonResult.Data.List, entity)
-		}
-		cLen--
-		if cLen == 0 {
-			close(c)
 		}
 	}
 

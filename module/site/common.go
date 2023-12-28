@@ -166,12 +166,16 @@ func (e *EndPoint) setProxy(proxyStr string) {
 func nameToReq(name string, q string) SearchEngine {
 	switch name {
 	case "百度":
+		fallthrough
+	case "Baidu":
 		return &Baidu{Req: Req{Q: q}}
 	case "Bing":
 		return &Bing{Req: Req{Q: q}}
 	case "Google":
 		return &Google{Req: Req{Q: q}}
 	case "微信公众号":
+		fallthrough
+	case "Wx":
 		return &Wx{Req: Req{Q: q}}
 	default:
 		return nil
@@ -190,6 +194,18 @@ func GetAllEnabled(q string) []SearchEngine {
 		}
 	}
 	return enabled
+}
+
+func GetByNames(names []string, q string) ([]SearchEngine, string) {
+	var enabled []SearchEngine
+	for _, name := range names {
+		e := nameToReq(name, q)
+		if e == nil {
+			return nil, name
+		}
+		enabled = append(enabled, nameToReq(name, q))
+    }
+	return enabled, ""
 }
 
 func GetDebug() bool {
