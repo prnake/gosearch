@@ -48,7 +48,7 @@ func main() {
 	}
 }
 
-//定义handle处理函数，只要该health被调用，就会写入ok
+// 定义handle处理函数，只要该health被调用，就会写入ok
 func health(w http.ResponseWriter, request *http.Request) {
 	log.Println(request.URL)
 	_ = request.ParseForm()
@@ -67,7 +67,8 @@ func search(w http.ResponseWriter, request *http.Request) {
 	_ = request.ParseForm()
 	q := request.Form.Get("q")
 	q = url.QueryEscape(q)
-	log.Printf("查询内容:%s\n", q)
+	log.Printf("查询内容: %s\n", q)
+
 	start := time.Now().UnixNano()
 	jsonResult := &site.JsonResult{Code: 0, Data: &site.EntityList{
 		Index: 0,
@@ -97,7 +98,7 @@ func search(w http.ResponseWriter, request *http.Request) {
 		jsonResult.Data.Size += result.Size
 		for i, entity := range result.List {
 			if i == 0 {
-				log.Println("for enter:" + entity.From)
+				log.Println("for enter: " + entity.From)
 			}
 			//初始化自然排序
 			entity.PositionScore = (len(result.List) - i) * site.GetPositionWeight(entity.From)

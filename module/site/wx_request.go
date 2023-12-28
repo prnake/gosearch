@@ -2,19 +2,33 @@ package site
 
 import (
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
+var WxP = EndPoint{
+	// =================Wx==================
+	Cookie: "",
+	//Cookie : "SUID=F84DCC781539960A000000006235D4E8; SUV=1647695080857391; ssuid=6792259580; weixinIndexVisited=1; IPLOC=CN3100; ABTEST=0|1668775030|v1; JSESSIONID=aaa2PBWFjHNS8hQ8_tfpy; cd=1668913493&0f942166ea05ede01cfe88195d36508d; rd=tyllllllll20WBOSYTuBqQ2iuqV0WBOqAfJbLZllll9llllxVllll5@@@@@@@@@@; ld=6Zllllllll20WBOSYTuBqQ2DdNH0WBOqAfJbLZllll9lllllVklll5@@@@@@@@@@; LSTMV=217%2C66; LCLKINT=1482; PHPSESSID=udut3pen5cml0b9849o68jch40; SNUID=9D60E0542D28C24D1776D6A42DF58CE7; ariaDefaultTheme=undefined",
+	Url:    "https://weixin.sogou.com",
+	Domain: "weixin.sogou.com",
+	Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+	Search: "https://weixin.sogou.com" + "/weixin?type=2&s_from=input&query=%s&ie=utf8&_sug_=n&_sug_type_=",
+	From:   "微信公众号",
+	
+	Transport: GetTransport(),
+}
+
 func (wx *Wx) Enable() (enable bool) {
-	return GetEnable(WxDomain)
+	return GetEnable(WxP.Domain)
 }
 
 func (wx *Wx) Search() (result *EntityList) {
 	wx.Req.url = wx.urlWrap()
-	log.Printf("req.url: %s\n", wx.Req.url)
+	log.Printf("wx req.url: %s\n", wx.Req.url)
 	resp := &Resp{}
 	resp, _ = wx.send()
 	wx.resp = *resp
@@ -23,7 +37,7 @@ func (wx *Wx) Search() (result *EntityList) {
 }
 
 func (wx *Wx) urlWrap() (url string) {
-	return fmt.Sprintf(WxSearch, wx.Req.Q)
+	return fmt.Sprintf(WxP.Search, wx.Req.Q)
 }
 
 func (wx *Wx) toEntityList() (entityList *EntityList) {
@@ -37,10 +51,10 @@ func (wx *Wx) toEntityList() (entityList *EntityList) {
 			// For each item found, get the Title
 			title := s.Find("h3").Find("a").Text()
 			url := s.Find("h3").Find("a").AttrOr("href", "")
-			url = WxUrl + url
+			url = WxP.Url + url
 			subTitle := s.Find("p[class='txt-info']").Text()
 
-			entity := Entity{From: WxFrom}
+			entity := Entity{From: WxP.From}
 			entity.Title = title
 			entity.SubTitle = subTitle
 			entity.Url = url
@@ -55,7 +69,7 @@ func (wx *Wx) toEntityList() (entityList *EntityList) {
 func (wx *Wx) send() (resp *Resp, err error) {
 
 	client := &http.Client{
-		Transport: tr,
+		Transport: &WxP.Transport,
 	}
 	//提交请求
 	request, err := http.NewRequest("GET", wx.urlWrap(), nil)
@@ -65,9 +79,9 @@ func (wx *Wx) send() (resp *Resp, err error) {
 
 	//增加header选项
 	request.Header.Add("User-Agent", UserAgent)
-	request.Header.Add("Host", WxDomain)
-	request.Header.Add("Cookie", WxCookie)
-	request.Header.Add("Accept", WxAccept)
+	request.Header.Add("Host", WxP.Domain)
+	request.Header.Add("Cookie", WxP.Cookie)
+	request.Header.Add("Accept", WxP.Accept)
 
 	return SendDo(client, request)
 

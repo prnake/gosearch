@@ -1,6 +1,8 @@
 server:
   debug: false
   port: 80
+  # proxy: http://localhost:10880
+  timeout: 1s
 
 search:
   - name: 百度
@@ -8,7 +10,7 @@ search:
     weight: 1
     positionWeight: 1
     score: 10
-    enable: false
+    enable: true
   - name: Bing
     domain: cn.bing.com
     weight: 1
