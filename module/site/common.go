@@ -27,7 +27,7 @@ type EndPoint struct {
 }
 
 var (
-	UserAgent = "user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36"
+	UserAgent = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
 var config map[string]interface{}
@@ -76,6 +76,7 @@ type JsonResult struct {
 
 type Req struct {
 	Q         string
+	Page      int
 	url       string
 	userAgent string
 	http.Cookie
@@ -134,6 +135,10 @@ func LoadConf() {
 		}
 	}
 
+	if ConfAuthHeader := serverConf["auth_header"]; ConfAuthHeader != nil {
+		AuthHeader = ConfAuthHeader.(string)
+	}
+
 	if timeout := serverConf["timeout"]; timeout != nil {
 		switch timeout := timeout.(type) {
 		case int:
@@ -163,30 +168,30 @@ func (e *EndPoint) setProxy(proxyStr string) {
 	e.Transport.Proxy = http.ProxyURL(proxy)
 }
 
-func nameToReq(name string, q string) SearchEngine {
+func nameToReq(name string, q string, page int) SearchEngine {
 	switch name {
 	case "百度":
 		fallthrough
 	case "Baidu":
-		return &Baidu{Req: Req{Q: q}}
+		return &Baidu{Req: Req{Q: q, Page: page}}
 	case "Bing":
-		return &Bing{Req: Req{Q: q}}
+		return &Bing{Req: Req{Q: q, Page: page}}
 	case "Google":
-		return &Google{Req: Req{Q: q}}
+		return &Google{Req: Req{Q: q, Page: page}}
 	case "微信公众号":
 		fallthrough
 	case "Wx":
-		return &Wx{Req: Req{Q: q}}
+		return &Wx{Req: Req{Q: q, Page: page}}
 	default:
 		return nil
 	}
 }
 
-func GetAllEnabled(q string) []SearchEngine {
+func GetAllEnabled(q string, page int) []SearchEngine {
 	var enabled []SearchEngine
 	for _, e := range endpoints {
 		if GetEnable(e.Domain) {
-			req := nameToReq(e.From, q)
+			req := nameToReq(e.From, q, page)
 			if req == nil {
 				log.Fatalf("unknown search engine: %v\n", e.From)
 			}
@@ -196,15 +201,25 @@ func GetAllEnabled(q string) []SearchEngine {
 	return enabled
 }
 
-func GetByNames(names []string, q string) ([]SearchEngine, string) {
+func GetByNames(names []string, q string, max_page int) ([]SearchEngine, string) {
 	var enabled []SearchEngine
-	for _, name := range names {
-		e := nameToReq(name, q)
-		if e == nil {
-			return nil, name
+	for page := range make([]int, max_page + 1) {
+		println(page)
+		for _, name := range names {
+			e := nameToReq(name, q, page)
+			if e == nil {
+				return nil, name
+			}
+			enabled = append(enabled, nameToReq(name, q, page))
 		}
-		enabled = append(enabled, nameToReq(name, q))
-    }
+		// for _, name := range names {
+		// 	e := nameToReq(name, q, page)
+		// 	if e == nil {
+		// 		return nil, name
+		// 	}
+		// 	enabled = append(enabled, nameToReq(name, q, page))
+		// }
+	}
 	return enabled, ""
 }
 
@@ -280,27 +295,41 @@ func GetEnable(domain string) bool {
 func SendDo(client *http.Client, request *http.Request) (*Resp, error) {
 	resp := &Resp{code: 200}
 
-	//处理返回结果
-	response, e := client.Do(request)
-	if response == nil {
-		resp.code = 500
-		log.Printf("response nil: %v\n", e)
+	// 尝试次数
+	var maxRetries int = 3
+	var currentRetry int = 0
+
+	for {
+		response, e := client.Do(request)
+		if e != nil {
+			currentRetry++
+			if currentRetry >= maxRetries {
+				// 超过最大重试次数
+				log.Printf("retry failed after %d attempts: %v\n", maxRetries, e)
+				return resp, e
+			}
+			log.Printf("io_timeout, retrying %d/%d\n", currentRetry, maxRetries)
+			continue
+		}
+
+		// 以下是正常的响应处理逻辑
+		if response.StatusCode != 200 {
+			resp.code = response.StatusCode
+			log.Printf("status code error: %d %s\n", response.StatusCode, response.Status)
+			return resp, nil
+		}
+		defer response.Body.Close()
+
+		// Load the HTML document
+		doc, err := goquery.NewDocumentFromReader(response.Body)
+		if err != nil {
+			log.Println(err)
+			return resp, err
+		}
+
+		resp.code = 200
+		resp.doc = doc
+
 		return resp, nil
 	}
-	if response.StatusCode != 200 {
-		resp.code = response.StatusCode
-		log.Printf("status code error: %d %s\n", response.StatusCode, response.Status)
-		return resp, nil
-	}
-	defer response.Body.Close()
-	// Load the HTML document
-	doc, err := goquery.NewDocumentFromReader(response.Body)
-	if err != nil {
-		log.Println(err)
-	}
-
-	resp.code = 200
-	resp.doc = doc
-
-	return resp, nil
 }

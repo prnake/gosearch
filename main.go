@@ -11,7 +11,18 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"strconv"
 )
+
+// Helper function to check if a string is in a slice
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
 
 type EntityWrapper struct { //注意此处
 	entity []site.Entity
@@ -61,8 +72,18 @@ func search(w http.ResponseWriter, request *http.Request) {
 	log.Println(request.URL)
 	_ = request.ParseForm()
 
+    authHeader := request.Header.Get("Authorization")
+    if len(site.AuthHeader) > 0 && authHeader != site.AuthHeader {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
+        return
+    }
+
 	q := request.Form.Get("q")
 	q = url.QueryEscape(q)
+	page, err := strconv.Atoi(request.Form.Get("page"))
+	if err != nil {
+		page = 0
+	}
 
 	var engine []string
 
@@ -70,8 +91,8 @@ func search(w http.ResponseWriter, request *http.Request) {
 		engine = []string{
 			"Baidu",
 			"Bing",
-			"Google",
-			"Wx",
+			// "Google",
+			// "Wx",
 		}
 	} else {
 		engine = strings.Split(engineStr, ",")
@@ -97,7 +118,7 @@ func search(w http.ResponseWriter, request *http.Request) {
 		List:  []site.Entity{},
 	}}
 
-	array, unsupported := site.GetByNames(engine, q)
+	array, unsupported := site.GetByNames(engine, q, page)
 	if array == nil {
 		w.WriteHeader(400)
 		jsonResult.Code = -1
@@ -138,16 +159,59 @@ outer:
 		}
 	}
 
+	// processedURLs := make(map[string]bool)
+	// urlFromCount := make(map[string]map[string]bool)
+
+	// for _, result := range results {
+	// 	for i, entity := range result.List {
+	// 		//初始化自然排序
+	// 		entity.PositionScore = (len(result.List) - i) * site.GetPositionWeight(entity.From)
+	// 		entity.SearchScore = site.GetSearchScore(entity.From)
+	// 		entity.DomainScore = site.GetDomainScore(entity.Host)
+	// 		entity.Score = entity.PositionScore + entity.SearchScore + entity.DomainScore
+
+			
+	// 		// 检查 URL 是否已经存在于 processedURLs 中
+	// 		if !processedURLs[entity.Url] {
+	// 			// 如果 URL 没有被处理过，添加到 jsonResult.Data.List 中
+	// 			jsonResult.Data.List = append(jsonResult.Data.List, entity)
+	// 			// 标记 URL 为已处理
+	// 			processedURLs[entity.Url] = true
+	// 			jsonResult.Data.Size += 1
+	// 		}
+	// 	}
+	// }
+
+	processedEntities := make(map[string]site.Entity) // Store entities by URL
+
 	for _, result := range results {
-		jsonResult.Data.Size += result.Size
 		for i, entity := range result.List {
-			//初始化自然排序
-			entity.PositionScore = (len(result.List) - i) * site.GetPositionWeight(entity.From)
-			entity.SearchScore = site.GetSearchScore(entity.From)
-			entity.DomainScore = site.GetDomainScore(entity.Host)
-			entity.Score = entity.PositionScore + entity.SearchScore + entity.DomainScore
-			jsonResult.Data.List = append(jsonResult.Data.List, entity)
+			// Initialize scoring
+			positionScore := (len(result.List) - i) * site.GetPositionWeight(entity.From)
+			searchScore := site.GetSearchScore(entity.From)
+			domainScore := site.GetDomainScore(entity.Host)
+			initialScore := positionScore + searchScore + domainScore
+
+			if existingEntity, exists := processedEntities[entity.Url]; exists {
+				// Add new source to existing entity's From list, if it's not already there
+				entity_list := strings.Split(existingEntity.From, ",")
+				if !contains(entity_list, entity.From) {
+					existingEntity.From = strings.Join(append(entity_list, entity.From), ",")
+					// Update score with additional weight
+					existingEntity.Score += initialScore
+					processedEntities[entity.Url] = existingEntity
+				}
+			} else {
+				entity.Score = initialScore
+				processedEntities[entity.Url] = entity
+			}
 		}
+	}
+
+	// Update jsonResult.Data.List with processedEntities values
+	for _, entity := range processedEntities {
+		jsonResult.Data.List = append(jsonResult.Data.List, entity)
+		jsonResult.Data.Size += 1
 	}
 
 	// sort score

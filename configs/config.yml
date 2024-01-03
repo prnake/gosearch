@@ -1,8 +1,9 @@
 server:
   debug: true
   port: 80
-  # proxy: http://localhost:10880
-  timeout: 1s
+  proxy: http://localhost:10880
+  auth_header: "Bearer token"
+  timeout: 5s
 
 search:
   - name: 百度
@@ -32,18 +33,16 @@ search:
     enable: true
 
 site:
+  - domain: zhuanlan.zhihu.com
+    weight: 5
+    score: 1
+  - domain: github.com
+    weight: 3
+    score: 1
+  - domain: juejin.cn
+    weight: 2
+    score: 1
   - domain: www.csdn.com
     weight: 1
     score: 1
-  - domain: zhuanlan.zhihu.com
-    weight: 1
-    score: 1
-  - domain: www.yuanbiguo.com
-    weight: 1
-    score: 1
-  - domain: juejin.cn
-    weight: 1
-    score: 1
-  - domain: github.com
-    weight: 10
-    score: 1
+  

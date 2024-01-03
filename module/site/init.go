@@ -7,6 +7,7 @@ import (
 )
 
 var MaxTimeout = time.Millisecond * 1500
+var AuthHeader = ""
 
 func GetTransport() http.Transport {
 	return http.Transport{

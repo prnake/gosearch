@@ -117,7 +117,7 @@
             search() {
                 this.wait = '加载中...'
                 axios
-                    .get('/search?q=' + this.q)
+                    .get('/search?page=0&q=' + this.q)
                     .then(response => {
                         this.wait = ''
                         this.tips = true
