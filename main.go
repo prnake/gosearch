@@ -80,6 +80,8 @@ func search(w http.ResponseWriter, request *http.Request) {
 
 	q := request.Form.Get("q")
 	q = url.QueryEscape(q)
+	filter := request.Form.Get("filter")
+	filter = url.QueryEscape(filter)
 	page, err := strconv.Atoi(request.Form.Get("page"))
 	if err != nil {
 		page = 0
@@ -112,13 +114,13 @@ func search(w http.ResponseWriter, request *http.Request) {
 	}
 
 	start := time.Now().UnixNano()
-	jsonResult := &site.JsonResult{Code: 0, Data: &site.EntityList{
+	jsonResult := &site.JsonResult{Code: 200, Data: &site.EntityList{
 		Index: 0,
 		Size:  0,
 		List:  []site.Entity{},
 	}}
 
-	array, unsupported := site.GetByNames(engine, q, page)
+	array, unsupported := site.GetByNames(engine, q, page, filter)
 	if array == nil {
 		w.WriteHeader(400)
 		jsonResult.Code = -1
@@ -138,6 +140,7 @@ func search(w http.ResponseWriter, request *http.Request) {
 
 	results := []*site.EntityList{}
 	timeoutAfter := time.After(timeout)
+	timeoutError := false
 
 outer:
 	for {
@@ -155,6 +158,7 @@ outer:
 				break outer
 			}
 		case <-timeoutAfter:
+			timeoutError = true
 			break outer
 		}
 	}
@@ -222,6 +226,9 @@ outer:
 
 	// 构造返回
 	jsonResult.Cost = (time.Now().UnixNano() - start) / 1e6
+	if timeoutError {
+		jsonResult.Code = 202
+	}
 	body, err := json.Marshal(jsonResult)
 	if err != nil {
 		jsonResult.Code = -1

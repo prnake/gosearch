@@ -77,6 +77,7 @@ type JsonResult struct {
 type Req struct {
 	Q         string
 	Page      int
+	Filter    string
 	url       string
 	userAgent string
 	http.Cookie
@@ -168,30 +169,30 @@ func (e *EndPoint) setProxy(proxyStr string) {
 	e.Transport.Proxy = http.ProxyURL(proxy)
 }
 
-func nameToReq(name string, q string, page int) SearchEngine {
+func nameToReq(name string, q string, page int, filter string) SearchEngine {
 	switch name {
 	case "百度":
 		fallthrough
 	case "Baidu":
-		return &Baidu{Req: Req{Q: q, Page: page}}
+		return &Baidu{Req: Req{Q: q, Page: page, Filter: filter}}
 	case "Bing":
-		return &Bing{Req: Req{Q: q, Page: page}}
+		return &Bing{Req: Req{Q: q, Page: page, Filter: filter}}
 	case "Google":
-		return &Google{Req: Req{Q: q, Page: page}}
+		return &Google{Req: Req{Q: q, Page: page, Filter: filter}}
 	case "微信公众号":
 		fallthrough
 	case "Wx":
-		return &Wx{Req: Req{Q: q, Page: page}}
+		return &Wx{Req: Req{Q: q, Page: page, Filter: filter}}
 	default:
 		return nil
 	}
 }
 
-func GetAllEnabled(q string, page int) []SearchEngine {
+func GetAllEnabled(q string, page int, filter string) []SearchEngine {
 	var enabled []SearchEngine
 	for _, e := range endpoints {
 		if GetEnable(e.Domain) {
-			req := nameToReq(e.From, q, page)
+			req := nameToReq(e.From, q, page, filter)
 			if req == nil {
 				log.Fatalf("unknown search engine: %v\n", e.From)
 			}
@@ -201,16 +202,16 @@ func GetAllEnabled(q string, page int) []SearchEngine {
 	return enabled
 }
 
-func GetByNames(names []string, q string, max_page int) ([]SearchEngine, string) {
+func GetByNames(names []string, q string, max_page int, filter string) ([]SearchEngine, string) {
 	var enabled []SearchEngine
 	for page := range make([]int, max_page + 1) {
 		println(page)
 		for _, name := range names {
-			e := nameToReq(name, q, page)
+			e := nameToReq(name, q, page, filter)
 			if e == nil {
 				return nil, name
 			}
-			enabled = append(enabled, nameToReq(name, q, page))
+			enabled = append(enabled, nameToReq(name, q, page, filter))
 		}
 		// for _, name := range names {
 		// 	e := nameToReq(name, q, page)
