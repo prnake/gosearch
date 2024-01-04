@@ -71,7 +71,7 @@ type JsonResult struct {
 	Cost int64       `json:"cost"`
 	Code int         `json:"code"`
 	Msg  string      `json:"msg"`
-	Data *EntityList `json:"data"`
+	Data *EntityList `json:"webPages"`
 }
 
 type Req struct {
@@ -92,14 +92,14 @@ type Resp struct {
 type EntityList struct {
 	Index int      `json:"index"`
 	Size  int      `json:"size"`
-	List  []Entity `json:"list"`
+	List  []Entity `json:"value"`
 }
 
 type Entity struct {
-	Title         string `json:"title"`
+	Title         string `json:"name"`
 	Host          string `json:"host"`
 	Url           string `json:"url"`
-	SubTitle      string `json:"subTitle"`
+	SubTitle      string `json:"snippet"`
 	From          string `json:"from"`
 	Score         int    `json:"score"`
 	PositionScore int    `json:"positionScore"`
