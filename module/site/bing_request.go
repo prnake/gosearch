@@ -69,8 +69,7 @@ func (bing *Bing) urlWrap() (url string) {
 }
 
 func (bing *Bing) toEntityList() (entityList *EntityList) {
-	entityList = &EntityList{Index: 0, Size: 10}
-	entityList.List = []Entity{}
+	entityList = &EntityList{Index: 0, Size: 0, List: []Entity{}}
 
 	if bing.resp.doc != nil {
 		// Find the review items

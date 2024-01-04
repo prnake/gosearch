@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	// "encoding/json"
 	"github.com/PuerkitoBio/goquery"
 )
@@ -30,13 +31,39 @@ func (baidu *Baidu) Enable() (enable bool) {
 }
 
 func (baidu *Baidu) Search() (result *EntityList) {
-	baidu.Req.url = baidu.urlWrap()
-	log.Printf("baidu req.url: %s\n", baidu.Req.url)
-	resp := &Resp{}
-	resp, _ = baidu.send()
-	baidu.resp = *resp
-	result = baidu.toEntityList()
-	return result
+	retryCount := 3
+    resultChan := make(chan *EntityList, retryCount)
+    var wg sync.WaitGroup
+
+    for retry := 0; retry < retryCount; retry++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+
+            baidu.Req.url = baidu.urlWrap()
+			log.Printf("baidu req.url: %s\n", baidu.Req.url)
+			resp := &Resp{}
+			resp, _ = baidu.send()
+			baidu.resp = *resp
+			result := baidu.toEntityList()
+
+            if result.Size > 0 {
+                resultChan <- result
+            }
+        }()
+    }
+
+    go func() {
+        wg.Wait()
+        close(resultChan)
+    }()
+
+    for result = range resultChan {
+        return result
+    }
+
+    log.Printf("Failed to get non-empty result after %d retries", retryCount)
+    return result
 }
 
 func (baidu *Baidu) urlWrap() (url string) {
